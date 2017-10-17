@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title> 1000000 Objects</title>
+        <script src="https://wzrd.in/standalone/regl@1.3.0"></script>
+	<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+        <script src="js/wgl2di.js"></script>
+    </head>
+    <body>
+        <div id ='my_div' style='border-style:solid;border-color:black;position:absolute'></div>
+        <script>
+           
+            var items=250000;
+            var x_range=150000;
+            var y_range=90000;
+            function getRandom(){
+                  var color = [Math.random()*255,Math.random()*255,Math.random()*255];
+                  var x=Math.round(Math.random()*x_range);
+                  var y=Math.round(Math.random()*y_range);
+                  return {pos:[x,y],color:color};
+            }
+       
+            var app= new WGL2Di("my_div",1000,600);
+          
+            for (var i=0;i<items;i++){
+                var params = getRandom();
+                app.addPointRectangle(params.pos,50,200,params.color);
+                params= getRandom();
+                app.addArc(params.pos,100,params.color,-2,2);
+                params=getRandom();
+                app.addLine(params.pos,[params.pos[0]+100,params.pos[1]-100],params.color);
+                params=getRandom();
+                app.addCircle(params.pos,100,params.color);
+            }
+     
+            app.addHandler("object_clicked",function(key){
+                console.log("you clicked "+key);
+            });
+            app.addHandler("object_over",function(key){
+                console.log("you entered "+ key);
+            });
+            app.addHandler("object_out",function(key){
+                console.log("you left " + key);
+            });
+            app.initialise();
+        </script>
+    </body>
+</html>
