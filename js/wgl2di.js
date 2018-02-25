@@ -1,12 +1,5 @@
 WGL2Di.prototype=Object.create(null);
 WGL2Di.prototype.constructor=WGL2Di;
-
-
-
-
-
-WGL2Di.prototype=Object.create(null);
-WGL2Di.prototype.constructor=WGL2Di;
 function WGL2Di(div_id,width,height){
     this.regl=null;
     this.pick_buffer=null;
@@ -183,7 +176,7 @@ WGL2Di.prototype._setUpDocument=function(width,height){
 
 WGL2Di.prototype._getMousePosition=function(e){
     var rect = this.canvas[0].getBoundingClientRect();
-    return [e.clientX-rect.left,e.clientY-rect.top];
+    return [e.originalEvent.clientX-rect.left,e.originalEvent.clientY-rect.top];
 };
 
 WGL2Di.prototype._getActualPosition=function(position){
@@ -199,7 +192,7 @@ WGL2Di.prototype._drawLabels=function(){
     this.label_context.font = "14px Arial";
    
     for(var i in this.object_types){
-        var pos =this.object_types[i][1].position;
+        var pos =this.object_types[i].data_in_view.position;
         
         for (var ii=0;ii<pos.length;ii++){
        
@@ -254,6 +247,40 @@ WGL2Di.prototype.addLine=function(positionTo,positionFrom,color,key){
     this.lines.pick_color.push(this._getRGBFromIndex(index+1));
     this.objects.push([line_index,1,key]);
     this.lines.count++;
+};
+WGL2Di.prototype.addThickLine=function(positionTo,positionFrom,width,color,key){
+    var index = this.objects.length;
+    if (key && ! this.keys[key]){
+        this.keys[key]=index;
+    }
+    else{
+        key=index;
+        this.keys[index]=index;
+    }
+    var rect_index=this.rects.position.length;
+    var x_diff= positionTo[0]-positionFrom[0];
+    var y_diff = positionTo[1]-positionFrom[1];
+    var factor = (0.5*width)/Math.sqrt((x_diff*x_diff)+(y_diff*y_diff));
+    var x_offset= factor*y_diff;
+    var y_offset= factor*x_diff;
+    this.rects.position.push([positionTo[0]+x_offset,positionTo[1]-y_offset]); //TL
+    this.rects.position.push([positionFrom[0]+x_offset,positionFrom[1]-y_offset]); //BL
+    this.rects.position.push([positionFrom[0]-x_offset,positionFrom[1]+y_offset]); //BR
+    
+    this.rects.position.push([positionFrom[0]-x_offset,positionFrom[1]+y_offset]); //BR
+    this.rects.position.push([positionTo[0]-x_offset,positionTo[1]+y_offset]); //TR
+    this.rects.position.push([positionTo[0]+x_offset,positionTo[1]-y_offset]); //TL
+    
+
+    var c  = [color[0]/255,color[1]/255,color[2]/255];
+    var pc = this._getRGBFromIndex(index+1);
+    for (var a=0;a<6;a++){
+         this.rects.color.push(c);
+         this.rects.pick_color.push(pc);
+    }
+    this.objects.push([rect_index,2,key]);
+    this.rects.count++;
+    return key;
 };
 
 WGL2Di.prototype.addRectangle=function(position,height,width,color,key){
@@ -521,27 +548,26 @@ WGL2Di.prototype._getObjectsInView=function(){
     var obj={};
     this._clearObjectsInView();
     for (var i=0;i<max-4;i+=4){
-      
-           var  index = pixels[i+2]*65536+pixels[i+1]*256+pixels[i];
-           if (index>0){
-               if(!obj[index-1]){
-                   obj[index-1]=true;
-                   this.objects_in_view++;
-               
-                  /* var item = this.objects[index-1];
-                   var i2 = item[0];
-                   var type =this.object_types[item[1]];   
-                    for (var prop in type[2]){
-                        type[1][prop].push(type[0][prop][i2]);
-                
+        var  index = pixels[i+2]*65536+pixels[i+1]*256+pixels[i];
+        if (index>0){
+            if(!obj[index-1]){
+                obj[index-1]=true;
+                this.objects_in_view++;
+                if (this.objects_in_view>100000){
+                    for (var t in this.object_types){
+                        var type = this.object_types[t];
+                        for (var prop in type.properties){     
+                            type.data_in_view[prop]=(type.data[prop]);       
+                        }
+                        type.data_in_view.count=type.data.count;
                     }
-                    type[1].count++;
-                    */
-              }
-           
-           
-        }
-             
+                 
+                    this.objects_in_view=this.objects.length;
+                    return;
+                    
+                }
+            }      
+        }       
     }
      //console.log("objects in view old way "+(Date.now()-time));
     var l =  -this.offset[0];
@@ -567,26 +593,26 @@ WGL2Di.prototype._getObjectsInView=function(){
             type.data_in_view.count++;
           
         }
-      /*  else{
+        else{
            
             var item= this.objects[i];
             var type =this.object_types[item[1]];
             var act_pos =this.object_types[item[1]].data.position[item[0]];
             if (act_pos[0]>l && act_pos[0]<r && act_pos[1] >t && act_pos[1]<b){
                  old_count++;
-              //  var st= item[0];
-              //  var en =st+type.vertices;
-             //   for (var prop in type.properties){    
-             //       for (var pos=st;pos<en;pos++){
-             //           type.data_in_view[prop].push(type.data[prop][pos]);       
-            //        }
+                var st= item[0];
+                var en =st+type.vertices;
+                for (var prop in type.properties){    
+                    for (var pos=st;pos<en;pos++){
+                        type.data_in_view[prop].push(type.data[prop][pos]);       
+                    }
                        
-            //    }
+                }
                 
-             //   type.data_in_view.count++;
+                type.data_in_view.count++;
             }
         }
-        */
+        
         
         
               
@@ -732,7 +758,7 @@ WGL2Di.prototype._addHandlers=function(){
                 if (obj){
                     for (var i in self.handlers.object_clicked){
                         self.handlers.object_clicked[i](obj[2]);
-                    }
+                    }  
                 }
             }
           
@@ -756,39 +782,40 @@ WGL2Di.prototype._addHandlers=function(){
     });  
     
     this.div_container.bind('mousewheel DOMMouseScroll', function(event){
+        var position =self._getActualPosition(self._getMousePosition(event));
 	if (event.originalEvent.wheelDelta > 0 || event.originalEvent.detail < 0) {
-            if (self.object_dragging){
-                self.circle_radii[self.object_dragging[0]]+=5;
-                self.refresh();
-            }
-            else{
-                self.zoom_amount+=0.05;
-                self.zoom(1+self.zoom_amount);
-                
-            }
+            self.zoom_amount+=0.05;
             
 	}
 	else {
-              if (self.object_dragging){
-                self.circle_radii[self.object_dragging[0]]-=5;
-                
-            }
-            else{
-                self.zoom_amount-=0.05;
-                self.zoom(1+self.zoom_amount);
-                
-                
-            }
-	}
+            self.zoom_amount-=0.05;
+            
+        }
+      
+        self.x_scale*=(1+self.zoom_amount);
+        self.y_scale*=(1+self.zoom_amount);
+        var new_position=self._getActualPosition(self._getMousePosition(event));
+        self.offset[0]+=new_position[0]-position[0];
+        self.offset[1]+=new_position[1]-position[1];
+        if (!self.loop){
+            self.loop = self.regl.frame(function(){
+            self._drawObjects(false);
+            });
+        }
+        
+        
+        console.log(position+":"+self._getActualPosition(self._getMousePosition(event)));
+        //clear the timeout user has not finished zooming
         clearTimeout($.data(this, 'timer'));
+        //when user finishes call the esxpensive methods;
         $.data(this, 'timer', setTimeout(function() {
             self.zoom_amount=0;
+            self.loop.cancel();
+            self.loop=null;
             self._drawPickBuffer(false);
             self._getObjectsInView();
-            //self.refresh(true);
-            
-            
-  }, 250));
+            self.refresh(true);
+        }, 350));
 
     });
     this.div_container.mousedown(function (evt){
@@ -942,7 +969,7 @@ WGL2Di.prototype._initDrawMethods=function(){
   
    
             },
-  
+
             uniforms: {
                   x_scale:self.regl.prop('x_scale'),
                   y_scale:self.regl.prop('y_scale'),
@@ -970,9 +997,9 @@ WGL2Di.prototype._initDrawMethods=function(){
                     if (gl_PointCoord[0]>r_clip || gl_PointCoord[1]>b_clip){\n\
                         discard;\n\
                     }\n\
-                    float r_border=r_clip*0.01;\n\
-                    float l_border=r_clip*0.01;\n\
-                    if (is_buffer==0  && (gl_PointCoord[0]<r_border || gl_PointCoord[0]>r_clip-r_border || gl_PointCoord[1]<l_border || gl_PointCoord[1]>b_clip-l_border)){\n\
+                    float r_border=b_clip*0.02;\n\
+                    float b_border=b_clip*0.02;\n\
+                    if (is_buffer==0  && (gl_PointCoord[0]<r_border || gl_PointCoord[0]>r_clip-r_border || gl_PointCoord[1]<b_border || gl_PointCoord[1]>b_clip-b_border)){\n\
                         gl_FragColor = vec4(0.1,0.1,0.1,1);\n\
                     }\n\
                     else{\n\

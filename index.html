@@ -21,7 +21,7 @@
                   return {pos:[x,y],color:color};
             }
        
-            var app= new WGL2Di("my_div",1000,600);
+            var app= new WGL2Di("my_div",1200,700);
           
             for (var i=0;i<items;i++){
                 var params = getRandom();
@@ -43,6 +43,8 @@
             app.addHandler("object_out",function(key){
                 console.log("you left " + key);
             });
+            //app.offset=[-75000,-45000];
+            app.x_scale=app.y_scale=0.005;
             app.initialise();
         </script>
     </body>
